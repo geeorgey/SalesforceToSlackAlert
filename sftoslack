@@ -1,0 +1,60 @@
+public class SalesforceToSlackAlert{
+    private static final String slackURL = 'ここにWebhookのURLを設定する';
+     
+    public class Oppty {
+        @InvocableVariable(label='商談ID')
+        public String oppID;
+        @InvocableVariable(label='取引先名')
+        public String Account;
+        @InvocableVariable(label='商談名')
+        public String oppName;
+        @InvocableVariable(label='商談金額')
+        public Integer Amount;
+        @InvocableVariable(label='完了予定日')
+        public Date closeDate;
+        @InvocableVariable(label='フェーズ')
+        public String oppPhase;
+        @InvocableVariable(label='商談所有者姓')
+        public String OwnerLastName;
+        @InvocableVariable(label='商談所有者名')
+        public String OwnerFirstName;
+    }
+     
+    @InvocableMethod(label='Post to Slack(←プロセスビルダーで呼び出されます)')
+    public static void postToSlack(List<Oppty> oppties) {
+        Oppty o = oppties[0]; // If bulk, only post first to avoid overloading Slack channel
+        //JSONをネストする場合の書き方はこちらを参照：https://foobarforce.com/2014/07/25/apex-method-of-the-day-json-serialize-object/
+        Map<String,Object> msg = new Map<String,Object>();
+		msg.put('text',  + '商談所有者: * ' + o.OwnerLastName + ' ' + o.OwnerFirstName + '* \n完了予定日: *' + String.valueOf(o.closeDate) + '* \n金額: * ¥' + o.Amount.format() +  '* \nURL：https://ここは自分の設定で書き換える.my.salesforce.com/' + o.oppID + '\n 取引先名： *' + o.Account + '* \nフェーズ： *' + o.oppPhase +'* \n商談名： * ' + o.oppName + '* \n -----------------------');
+        msg.put('mrkdwn', true);
+        String body = JSON.serialize(msg);   
+        System.enqueueJob(new QueueableSlackCall(slackURL, 'POST', body));
+    }
+     
+    public class QueueableSlackCall implements System.Queueable, Database.AllowsCallouts {
+         
+        private final String url;
+        private final String method;
+        private final String body;
+         
+        public QueueableSlackCall(String url, String method, String body) {
+            this.url = url;
+            this.method = method;
+            this.body = body;
+        }
+         
+        public void execute(System.QueueableContext ctx) {
+            HttpRequest req = new HttpRequest();
+            req.setEndpoint(url);
+            req.setMethod(method);
+            req.setBody(body);
+            Http http = new Http();
+            //参考 https://developer.salesforce.com/forums/?id=906F00000009BO1IAM
+            try{
+                HTTPResponse res = http.send(req);
+                }catch(Exception e){
+                }
+        }
+ 
+    }
+}
